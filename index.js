@@ -1,13 +1,19 @@
 const net = require('net');
 const dns = require('dns');
 
+const servName = "irc.drakeluce.com"
+
 class IRCChannel{
     constructor(name){
         this.name = name;
         this.clients = [];
     }
-    addUser(client){
+    addClient(client){
         this.clients.push(client);
+        const resp = ":" + client.nick + "!~" + client.username + "@" + client.hostname + " JOIN " + this.name;
+        this.clients.forEach(function(anyClient){
+            anyClient.socket.write(resp + "\r\n");
+        });
     }
 }
 
@@ -19,12 +25,21 @@ class IRCChannelList{
         this.list.push(channelName);
     }
     exists(channelName){
-        this.list.forEach(function(channel){
-            if(this.channel.name == channelName){
+        for(let channel in this.list){
+            if(channel.name == channelName){
                 return true;
             }
-        });
+        }
         return false;
+    }
+    getChannel(channelName){
+        let found = null;
+        for(let channel in this.list){
+            if(channel.name == channelName){
+                return channel;
+            }
+        }
+        return null;
     }
 }
 
@@ -73,6 +88,10 @@ const server = net.createServer(function(socket) {
         socket.write("Yo, welcome to the server " + newClient.nick + "!\r\n");
     }
 
+    socket.on('error', function(err){
+        console.log(err);
+    })
+
     socket.on('data', function (data) {
         const commands = data.toString().split(/\r?\n/);
         commands.forEach(function(command){
@@ -97,7 +116,13 @@ const server = net.createServer(function(socket) {
                 case "JOIN":
                     const channelName = commandParts[1];
                     if(!channelList.exists(channelName)){
-                        channelList.addChannel(new IRCChannel(channelName));
+                        console.log("New channel " + channelName);
+                        const channel = new IRCChannel(channelName);
+                        channel.addClient(newClient);
+                        channelList.addChannel(channel);
+                    }else{
+                        const channel = channelList.getChannel(channelName);
+                        channel.addClient(newClient)
                     }
             }
             if(newClient.checkComplete() && !newClient.done){
@@ -106,7 +131,7 @@ const server = net.createServer(function(socket) {
                     newClient.ip = "99.251.71.140";
                 }
                 dns.reverse(newClient.ip, function(err, hostnames){
-                    newClient.setHostname = hostnames[0];
+                    newClient.hostname = hostnames[0];
                     sendMOTD();
                 });
             }
