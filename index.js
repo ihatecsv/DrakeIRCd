@@ -11,7 +11,9 @@ class IRCChannel{
     addClient(client){
         this.clients.push(client);
         const resp = ":" + client.nick + "!~" + client.username + "@" + client.hostname + " JOIN " + this.name;
+        const tempThis = this;
         this.clients.forEach(function(anyClient){
+            console.log("Sending " + client.nick + ", " + tempThis.name + " to " + anyClient.nick);
             anyClient.socket.write(resp + "\r\n");
         });
     }
